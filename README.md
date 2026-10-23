@@ -1,15 +1,16 @@
 # Claude Knob
 
-A USB knob for switching between Claude Code sessions. Each open session gets one position on the knob, and turning the knob brings that session's Terminal window to the front. The knob shows each session's state (idle, running, needs you, done) on its LEDs or screen, and the menu-bar icon shows it too.
+A USB knob for switching between Claude Code sessions. Each open session gets one position on the knob, and turning the knob brings that session's Terminal window to the front. It works the other way too: focus a window yourself and the knob turns to it. The knob shows each session's state (idle, running, needs you, done) on its LEDs or screen, and the menu-bar icon shows it too.
 
 ```
-Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd daemon ◀──USB serial (NDJSON)──▶ knob (ESP32-S3)
-                                                       │
-                                                       └─ osascript: focus Terminal.app tab by tty
+Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd daemon ◀──USB serial (NDJSON)──▶ knob (ESP32-C6 / S3)
+                                                       │  ▲
+                              focus a tab by tty ──────┘  └────── which window is in front
+                              (in-process AppleScript)            (CoreGraphics window list)
 ```
 
 - `host/`: `knobd`, a Rust daemon with a menu-bar icon, plus a CLI (macOS for now; window focusing sits behind a `Focuser` trait so other platforms can be added).
-- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs, buzzer). The motor creates the detents: exactly one per session, with walls past the first and last.
+- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last.
 - `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
 - `firmware/lib/knoblink/`: the host protocol, shared by both boards.
 - `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD.
@@ -70,6 +71,15 @@ knobd knob '{"t":"debug","on":true,"ms":100}'               # angle/torque telem
 
 Every parameter is described in `HapticParams` in `src/haptics.h`.
 
+### T-Encoder Pro (untested)
+
+```sh
+cd firmware/t-encoder-pro
+pio run -t upload
+```
+
+Two panel revisions of this board exist. `include/board.h` defaults to the newer CO5300 panel. If the screen stays black, switch to `PANEL_SH8601`.
+
 ## Usage
 
 | Knob | Action |
@@ -95,6 +105,10 @@ knobd uninstall-hooks
 
 `KNOBD_SOCKET` overrides the socket path (default `~/.claude-knob/knobd.sock`). `KNOBD_DEBUG=1` makes `knobd hook` print errors to stderr.
 
+Files in `~/.claude-knob/`:
+- `knobd.log`: what the daemon did. Each knob click (`knob: select`) and each window change it saw (`watch: front window …`) gets a line, which is the place to look if the knob and Terminal disagree.
+- `sessions.json`: the tracked sessions. Saved on every change, so restarting the app doesn't lose them.
+
 ## How state is tracked
 
 | Claude Code hook | State |
@@ -105,9 +119,22 @@ knobd uninstall-hooks
 | Stop | done |
 | SessionEnd | removed |
 
-`knobd hook` walks up the process tree to find the session's tty (used to find the Terminal tab) and the `claude` pid (used to drop sessions whose process has died). A new session on the same tty replaces the old one, for example after `/clear`.
+`knobd hook` walks up the process tree to find the session's tty (used to find the Terminal tab) and the `claude` pid (used to drop sessions whose process has died). A new session on the same tty replaces the old one, for example after `/clear`. A session keeps the name of the folder it started in.
+
+Every 100 ms the daemon checks which window is on top, using the window server's list. That costs about 1 ms and needs no permissions. Terminal is asked over AppleScript only when the front window has several tabs. When that window belongs to a session, the session becomes focused: the knob turns to it and its "done" state clears.
 
 ## Protocol (USB CDC, newline-delimited JSON)
 
-- daemon → knob: `{"t":"sessions","items":[{"id":"…","name":"proj","state":"running"}],"sel":0}`, sent on every change and every 3 s as a heartbeat.
-- knob → daemon: `{"t":"hello","fw":"0.1.0"}`, `{"t":"select","idx":1,"id":"…"}`, `{"t":"press","idx":1,"id":"…"}`.
+- daemon → knob: `{"t":"sessions","items":[{"id":"…","name":"proj","state":"running"}],"sel":0,"focus":0}`, sent on every change and every 3 s as a heartbeat. `focus` is the session whose window is in front, or -1 when it's another app.
+- knob → daemon: `{"t":"hello","fw":"0.2.0"}`, `{"t":"select","idx":1,"id":"…"}`, `{"t":"press","idx":1,"id":"…"}`.
+- Board-specific commands (tuning, debug, calibration) pass through `knobd knob '<json>'`. They're listed at the top of `firmware/t-knob/src/main.cpp`.
+
+## Development
+
+```sh
+cd host
+cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+cd ../firmware/t-knob && pio run          # and firmware/t-encoder-pro
+```
+
+CI (`.github/workflows/ci.yml`) runs the same checks on every push: the host on macOS (fmt, clippy with and without the menu-bar feature, tests, and an app bundle build), plus a PlatformIO build of both firmwares. The firmware has no unit tests yet. On the T-Knob, `knobd knob '{"t":"shift","deg":8}'` with debug on is a quick hardware self-test: the motor should turn the knob 8° and settle without wobbling.

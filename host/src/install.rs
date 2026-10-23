@@ -32,9 +32,9 @@ fn exe() -> anyhow::Result<String> {
 }
 
 fn is_ours(entry: &Value) -> bool {
-    entry["hooks"]
-        .as_array()
-        .is_some_and(|hs| hs.iter().any(|h| h["command"].as_str().is_some_and(|c| c.contains("knobd") && c.ends_with(" hook"))))
+    entry["hooks"].as_array().is_some_and(|hs| {
+        hs.iter().any(|h| h["command"].as_str().is_some_and(|c| c.contains("knobd") && c.ends_with(" hook")))
+    })
 }
 
 fn load_settings() -> anyhow::Result<Value> {
@@ -60,20 +60,15 @@ fn save_settings(v: &Value) -> anyhow::Result<()> {
 #[cfg_attr(not(feature = "tray"), allow(dead_code))]
 pub fn hooks_installed() -> bool {
     let Ok(v) = load_settings() else { return false };
-    EVENTS.iter().all(|ev| {
-        v["hooks"][*ev].as_array().is_some_and(|list| list.iter().any(is_ours))
-    })
+    EVENTS.iter().all(|ev| v["hooks"][*ev].as_array().is_some_and(|list| list.iter().any(is_ours)))
 }
 
 /// Adds a `knobd hook` entry for every event we track, leaving existing hooks alone.
 pub fn install_hooks() -> anyhow::Result<()> {
     let mut v = load_settings()?;
     let command = format!("'{}' hook", exe()?);
-    let hooks = v
-        .as_object_mut()
-        .context("settings.json is not an object")?
-        .entry("hooks")
-        .or_insert_with(|| json!({}));
+    let hooks =
+        v.as_object_mut().context("settings.json is not an object")?.entry("hooks").or_insert_with(|| json!({}));
     for ev in EVENTS {
         let list = hooks
             .as_object_mut()
@@ -101,7 +96,7 @@ pub fn uninstall_hooks() -> anyhow::Result<()> {
         for list in hooks.values_mut().filter_map(Value::as_array_mut) {
             list.retain(|e| !is_ours(e));
         }
-        hooks.retain(|_, list| list.as_array().map_or(true, |a| !a.is_empty()));
+        hooks.retain(|_, list| list.as_array().is_none_or(|a| !a.is_empty()));
         if hooks.is_empty() {
             v.as_object_mut().unwrap().remove("hooks");
         }

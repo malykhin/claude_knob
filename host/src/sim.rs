@@ -23,7 +23,13 @@ impl Knob {
             return;
         }
         for (i, it) in self.items.iter().enumerate() {
-            let mark = if i as i32 == self.focus { "▶" } else if i == self.sel { "▷" } else { " " };
+            let mark = if i as i32 == self.focus {
+                "▶"
+            } else if i == self.sel {
+                "▷"
+            } else {
+                " "
+            };
             let st = match it.state {
                 State::Idle => "idle",
                 State::Running => "RUNNING",
