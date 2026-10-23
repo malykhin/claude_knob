@@ -1,0 +1,4 @@
+host/target/
+.pio/
+.DS_Store
+.venv/

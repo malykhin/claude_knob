@@ -1,0 +1,113 @@
+# Claude Knob
+
+A USB knob for switching between Claude Code sessions. Each open session gets one position on the knob, and turning the knob brings that session's Terminal window to the front. The knob shows each session's state (idle, running, needs you, done) on its LEDs or screen, and the menu-bar icon shows it too.
+
+```
+Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd daemon ◀──USB serial (NDJSON)──▶ knob (ESP32-S3)
+                                                       │
+                                                       └─ osascript: focus Terminal.app tab by tty
+```
+
+- `host/`: `knobd`, a Rust daemon with a menu-bar icon, plus a CLI (macOS for now; window focusing sits behind a `Focuser` trait so other platforms can be added).
+- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs, buzzer). The motor creates the detents: exactly one per session, with walls past the first and last.
+- `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
+- `firmware/lib/knoblink/`: the host protocol, shared by both boards.
+- `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD.
+
+## Setup
+
+### 1. Menu-bar app
+
+```sh
+cd host
+./scripts/bundle-macos.sh                          # builds target/release/Claude Knob.app
+mv "target/release/Claude Knob.app" /Applications/
+open "/Applications/Claude Knob.app"
+```
+
+In the knob icon's menu in the menu bar, turn on **Claude Code hooks installed** and **Start at login**, then restart any running `claude` sessions. The first time it focuses a window, macOS asks whether Claude Knob may control Terminal. Allow it.
+
+The menu shows:
+- whether the knob is connected
+- every session with its state (click one to focus it)
+- the hooks and login toggles
+- the log (`~/.claude-knob/knobd.log`)
+- Quit
+
+When a session needs you, the icon turns amber and shows a count.
+
+Hooks point at the binary's current path. If you move the app, turn hooks off and on again.
+
+Without the app: `cargo build --release`, then `knobd install-hooks` and `knobd install-launchd`. Use `knobd run --no-tray` for a daemon with no menu-bar icon, or build with `--no-default-features` to leave out the UI code completely (for example on Linux).
+
+### 2. Firmware (T-Knob)
+
+```sh
+cd firmware/t-knob
+pio run -t upload        # quit Claude Knob first: it holds the serial port
+```
+
+On first boot the motor calibrates: the knob turns by itself about 50° and back. Don't touch it while that happens. The result is saved in flash. Hold BOOT while powering on to calibrate again, or run `knobd knob '{"t":"recal"}'`.
+
+Each LED shows one session (on the page of 4 that contains the selection):
+- dim = idle (brighter if it's the selected one)
+- breathing = running
+- fast blink = needs you
+- solid = done
+
+When a session starts waiting for you, the knob gives a short vibration (`nudge`, set it to 0 to turn it off). There's no sound. While waiting for knobd, all LEDs breathe slowly. With no sessions the knob spins freely.
+
+#### Tuning the feel
+
+The knob takes commands through the daemon, and replies go to `~/.claude-knob/knobd.log`:
+
+```sh
+knobd knob '{"t":"tune","peak":1.5,"shape":0.8,"click":0.6}' # strength (V), profile 0=crisp..1=smooth, tick (V)
+knobd knob '{"t":"save"}'                                   # keep the current values across reboots ("reset" = defaults)
+knobd knob '{"t":"info"}'                                   # current calibration and parameters
+knobd knob '{"t":"debug","on":true,"ms":100}'               # angle/torque telemetry
+```
+
+Every parameter is described in `HapticParams` in `src/haptics.h`.
+
+## Usage
+
+| Knob | Action |
+|---|---|
+| Rotate | Move to the next or previous session (one detent each). Its Terminal tab is focused right away (about 20–45 ms). Spinning fast skips windows instead of queueing them. |
+| Press | Focus the selected session immediately. The T-Knob uses the MT6701 push flag or the BOOT button. |
+| Focus a window yourself | The knob follows. Click a session's Terminal window, use ⌘\`, or anything else, and the T-Knob's motor turns the wheel to that session within about 0.1 s. It gives up if you're holding the wheel, and waits 1 s after you last turned it. |
+| Switch to another app | The knob shows "no selection" (no LED is highlighted) and stays parked where it was. The next click moves to the neighboring session as usual. If it's parked at the first or last session, pushing into that end's wall selects that session (you feel a tick). |
+
+The "done" state clears once you focus that session.
+
+### CLI
+
+```sh
+knobd sessions          # list tracked sessions with state, tty, pid
+knobd focus 2           # focus session #2
+knobd ports             # show the detected knob serial port
+knobd run --no-serial   # run the daemon (and menu-bar icon) without hardware…
+knobd sim               # …and drive it from a keyboard "knob" (j/k rotate, p press)
+knobd knob '<json>'     # send a raw command to the knob
+knobd uninstall-hooks
+```
+
+`KNOBD_SOCKET` overrides the socket path (default `~/.claude-knob/knobd.sock`). `KNOBD_DEBUG=1` makes `knobd hook` print errors to stderr.
+
+## How state is tracked
+
+| Claude Code hook | State |
+|---|---|
+| SessionStart | idle |
+| UserPromptSubmit, PreToolUse, PostToolUse | running |
+| PermissionRequest, Notification | needs you (`idle_prompt` notifications are ignored) |
+| Stop | done |
+| SessionEnd | removed |
+
+`knobd hook` walks up the process tree to find the session's tty (used to find the Terminal tab) and the `claude` pid (used to drop sessions whose process has died). A new session on the same tty replaces the old one, for example after `/clear`.
+
+## Protocol (USB CDC, newline-delimited JSON)
+
+- daemon → knob: `{"t":"sessions","items":[{"id":"…","name":"proj","state":"running"}],"sel":0}`, sent on every change and every 3 s as a heartbeat.
+- knob → daemon: `{"t":"hello","fw":"0.1.0"}`, `{"t":"select","idx":1,"id":"…"}`, `{"t":"press","idx":1,"id":"…"}`.
