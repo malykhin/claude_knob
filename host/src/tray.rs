@@ -93,11 +93,9 @@ impl Ui {
             Action::ToggleHooks if install::hooks_installed() => install::uninstall_hooks(),
             Action::ToggleHooks => install::install_hooks(),
             Action::ToggleLogin => install::set_login_item(!install::login_item_enabled()),
-            Action::OpenLog => std::process::Command::new("open")
-                .arg(log_path())
-                .status()
-                .map(|_| ())
-                .map_err(Into::into),
+            Action::OpenLog => {
+                std::process::Command::new("open").arg(log_path()).status().map(|_| ()).map_err(Into::into)
+            }
             Action::Quit => {
                 daemon::cleanup();
                 std::process::exit(0);
@@ -184,7 +182,13 @@ fn knob_icon(color: Option<[u8; 3]>) -> Icon {
         let ring = (12.5..=16.5).contains(&d);
         // Pointer: a capsule from the center up toward 12 o'clock.
         let (top, bottom, half_w) = (7.0, c, 1.9);
-        let dy = if y < top { top - y } else if y > bottom { y - bottom } else { 0.0 };
+        let dy = if y < top {
+            top - y
+        } else if y > bottom {
+            y - bottom
+        } else {
+            0.0
+        };
         let pointer = (x - c).powi(2) + dy.powi(2) <= half_w * half_w;
         ring || pointer
     };

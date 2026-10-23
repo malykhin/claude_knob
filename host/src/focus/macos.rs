@@ -130,14 +130,12 @@ fn top_window() -> Option<(i64, i64)> {
         kCGWindowListOptionOnScreenOnly, kCGWindowNumber, kCGWindowOwnerPID,
     };
 
-    let list = copy_window_info(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID)?;
+    let list =
+        copy_window_info(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID)?;
     for item in list.iter() {
         let dict: CFDictionary<CFString, CFType> =
             unsafe { CFDictionary::wrap_under_get_rule(*item as core_foundation::dictionary::CFDictionaryRef) };
-        let num = |key| {
-            dict.find(unsafe { CFString::wrap_under_get_rule(key) })
-                .and_then(|v| v.downcast::<CFNumber>())
-        };
+        let num = |key| dict.find(unsafe { CFString::wrap_under_get_rule(key) }).and_then(|v| v.downcast::<CFNumber>());
         if num(unsafe { kCGWindowLayer }).and_then(|n| n.to_i64()) != Some(0) {
             continue;
         }
@@ -178,7 +176,10 @@ fn error_message(info: &NSDictionary<NSString, AnyObject>) -> String {
 fn focus_source(t: TabRef, activate: bool) -> String {
     let select = if t.count > 1 { format!("set selected of tab {} of w to true\n", t.index) } else { String::new() };
     let activate = if activate { "activate\n" } else { "" };
-    format!("tell application \"Terminal\"\nset w to window id {}\n{select}set index of w to 1\n{activate}end tell", t.window)
+    format!(
+        "tell application \"Terminal\"\nset w to window id {}\n{select}set index of w to 1\n{activate}end tell",
+        t.window
+    )
 }
 
 struct Worker {
@@ -220,7 +221,9 @@ impl Worker {
                         return Some(tty.clone());
                     }
                 }
-                let tty = self.run(&format!("tell application \"Terminal\" to get tty of selected tab of window id {window}")).ok()?;
+                let tty = self
+                    .run(&format!("tell application \"Terminal\" to get tty of selected tab of window id {window}"))
+                    .ok()?;
                 self.tab_seen = Some((window, tty.clone(), Instant::now()));
                 Some(tty)
             }

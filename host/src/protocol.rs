@@ -31,7 +31,12 @@ pub enum ToKnob {
     /// Full snapshot. `sel` is the index the knob should point at (-1 when empty);
     /// `focus` is the session whose terminal is in front, or -1 when the user is
     /// looking at something else.
-    Sessions { items: Vec<Item>, sel: i32, #[serde(default = "no_focus")] focus: i32 },
+    Sessions {
+        items: Vec<Item>,
+        sel: i32,
+        #[serde(default = "no_focus")]
+        focus: i32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -72,11 +77,15 @@ pub struct HookMsg {
 pub enum Ctl {
     Hook(HookMsg),
     List,
-    Focus { idx: usize },
+    Focus {
+        idx: usize,
+    },
     /// Turns the connection into a knob link (used by `knobd sim`).
     Attach,
     /// Forwards one raw JSON line to the knob (board-specific tuning/debug commands).
-    Knob { line: String },
+    Knob {
+        line: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

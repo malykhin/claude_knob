@@ -35,9 +35,7 @@ pub struct Registry {
 fn state_for(msg: &HookMsg, current: Option<State>) -> Option<State> {
     match msg.event.as_str() {
         "SessionStart" => Some(State::Idle),
-        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PreCompact" | "SubagentStop" => {
-            Some(State::Running)
-        }
+        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PreCompact" | "SubagentStop" => Some(State::Running),
         "PermissionRequest" => Some(State::Pending),
         // idle_prompt fires after Claude has been waiting a while; it doesn't change anything.
         "Notification" => match msg.notification_type.as_deref() {
@@ -113,7 +111,7 @@ impl Registry {
     /// Drops sessions whose claude process is gone.
     pub fn prune(&mut self) -> bool {
         let n = self.sessions.len();
-        self.sessions.retain(|s| s.pid.map_or(true, pid_alive));
+        self.sessions.retain(|s| s.pid.is_none_or(pid_alive));
         n != self.sessions.len()
     }
 
@@ -154,7 +152,7 @@ impl Registry {
             return false;
         }
         self.focused_tty = tty;
-        if let Some(i) = usize::try_from(self.focus_index()).ok() {
+        if let Ok(i) = usize::try_from(self.focus_index()) {
             let id = self.sessions[i].id.clone();
             self.ack(&id);
             self.sel_id = Some(id);
@@ -163,11 +161,8 @@ impl Registry {
     }
 
     pub fn snapshot(&self) -> (Vec<Item>, i32) {
-        let items = self
-            .sessions
-            .iter()
-            .map(|s| Item { id: s.id.clone(), name: s.name(), state: s.state })
-            .collect::<Vec<_>>();
+        let items =
+            self.sessions.iter().map(|s| Item { id: s.id.clone(), name: s.name(), state: s.state }).collect::<Vec<_>>();
         let focus = self.focus_index();
         let sel = match &self.sel_id {
             _ if items.is_empty() => -1,
