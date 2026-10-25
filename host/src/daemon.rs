@@ -292,7 +292,15 @@ pub async fn start(
             let mut tick = tokio::time::interval(PRUNE_EVERY);
             loop {
                 tick.tick().await;
-                if shared.reg.lock().unwrap().prune() {
+                let pruned = shared.reg.lock().unwrap().prune();
+                let s = shared.clone();
+                let found = tokio::task::spawn_blocking(move || {
+                    crate::discover::find_new(|id| s.reg.lock().unwrap().find(id).is_some())
+                })
+                .await
+                .unwrap_or_default();
+                let adopted = shared.reg.lock().unwrap().adopt(found);
+                if pruned || adopted {
                     shared.notify();
                 }
             }
