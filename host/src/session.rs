@@ -108,6 +108,20 @@ impl Registry {
         n != self.sessions.len()
     }
 
+    /// Adds sessions found without a hook (see `discover`). A tty that's already
+    /// tracked wins: its session reported in through hooks, which is more current.
+    pub fn adopt(&mut self, found: Vec<Session>) -> bool {
+        let mut changed = false;
+        for s in found {
+            let taken = self.sessions.iter().any(|t| t.id == s.id || (s.tty.is_some() && t.tty == s.tty));
+            if !taken {
+                self.sessions.push(s);
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// Drops sessions whose claude process is gone.
     pub fn prune(&mut self) -> bool {
         let n = self.sessions.len();
@@ -292,6 +306,26 @@ mod tests {
         // A session that registers after its window was focused still resolves.
         r.apply(&msg("SessionStart", "c", Some("/dev/ttys009")));
         assert_eq!(r.focus_index(), 2);
+    }
+
+    #[test]
+    fn adopt_skips_tracked() {
+        let mut r = Registry::default();
+        r.apply(&msg("SessionStart", "a", Some("/dev/ttys001")));
+        let found = |id: &str, tty: &str| Session {
+            id: id.into(),
+            cwd: "/x/other".into(),
+            tty: Some(tty.into()),
+            pid: None,
+            state: State::Running,
+        };
+        assert!(!r.adopt(vec![found("a", "/dev/ttys001"), found("old", "/dev/ttys001")]));
+        assert!(r.adopt(vec![found("b", "/dev/ttys002")]));
+        assert_eq!(r.snapshot().0.len(), 2);
+        assert_eq!(r.get(1).unwrap().state, State::Running);
+        // A hook from the adopted session updates it in place.
+        r.apply(&msg("Stop", "b", None));
+        assert_eq!(r.get(1).unwrap().state, State::Done);
     }
 
     #[test]

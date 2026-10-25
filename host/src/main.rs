@@ -1,4 +1,5 @@
 mod daemon;
+mod discover;
 mod focus;
 mod hook;
 mod install;
