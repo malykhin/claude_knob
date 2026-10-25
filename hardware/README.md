@@ -29,7 +29,7 @@ Measured from LilyGO's STEP model ([`3D_File/H718-20240809.stp`](https://github.
 |---|---|
 | Static bottom (PCB, cover, mount base) | Ø32 mm, z −5.5 to about 6 |
 | Rotor bell (spins) | Ø32 mm, top face at z 18.75 |
-| Rotor top holes | 3× Ø1.6 (M2 tap) on r = 10.5 mm at 0°/120°/240°; 2× Ø2.0 on r = 10.5 mm at 90°/270°; 9 mm deep |
+| Rotor top holes | 3× Ø1.6 on r = 10.5 mm (PCD 21) at 0°/120°/240°; 2× Ø2.0 on r = 10.5 mm at 90°/270°. Likely M1.6 threads (M2 doesn't fit; the model derives from SmartKnob, whose 32 mm motor has M1.6 rotor holes with only ~1.5 mm of thread engagement), so use short screws |
 | Static hollow shaft | Ø11.5 mm, up to z 23.1 |
 | Top breakout PCB | Ø17.4 mm, z 22.55 to 23.55 |
 | Top PCB screws | 2×, Ø1.8 holes at (0, ±4), into Ø1.3 pilot holes in the shaft (M1.6) |
