@@ -30,6 +30,9 @@ void haptics_set(int count, int pos, float angle);
 void haptics_shift(float rad);
 int haptics_count();
 int haptics_pos();
+// Angle of position 0; position k sits at origin + k * width (radians).
+float haptics_origin();
+float haptics_width();
 
 // Turns the knob to position `p` with the motor (the user switched windows by hand).
 // Gives up, staying at `p` logically, if a hand holds the wheel.
