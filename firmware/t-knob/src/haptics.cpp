@@ -93,6 +93,8 @@ bool haptics_take_wall_push()
 
 int haptics_count() { return count; }
 int haptics_pos() { return pos; }
+float haptics_origin() { return origin; }
+float haptics_width() { return width(); }
 
 float haptics_update(float angle, float velocity, bool *moved)
 {

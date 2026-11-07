@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "board.h"
+#include "display.h"
 #include "foc.h"
 #include "haptics.h"
 #include "leds.h"
@@ -122,6 +123,7 @@ void setup()
     link_init();
     link_on_message(on_command);
     leds_init();
+    display_init(); // before the motor starts: panel init blocks for ~0.3 s
     haptics_load();
     bool force_cal = digitalRead(BOOT_BTN) == LOW;
     foc_init(force_cal);
@@ -146,6 +148,7 @@ static void ui_tick()
         leds_flash();
     }
     leds_update(!unselected());
+    display_update(!unselected(), user_angle(), haptics_origin(), haptics_width());
 
     uint32_t now = millis();
     if (debug && now - last_debug >= debug_every) {
@@ -161,6 +164,7 @@ static void ui_tick()
 void loop()
 {
     foc_update();
+    display_step();
 
     bool moved;
     float torque = haptics_update(user_angle(), user_dir * foc_velocity(), &moved);
