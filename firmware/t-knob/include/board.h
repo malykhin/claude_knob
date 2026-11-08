@@ -43,4 +43,4 @@
 #define DISPLAY_ANGLE_OFFSET_DEG 0
 
 // Flip if turning clockwise moves to the previous session.
-#define KNOB_REVERSE 0
+#define KNOB_REVERSE 1
