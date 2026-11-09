@@ -19,7 +19,9 @@ Cut the PH2.0 cable that comes with the module and solder it to the pads:
 | CS | GND | The LCD is the only device on its bus, so it stays selected |
 | RST | 3V3 | The firmware resets it with a command instead |
 
-There are only 4 free GPIOs, which is why CS and RST are tied off.
+There are only 4 free GPIOs, which is why CS and RST are tied off. The LCD uses the ESP32-C6's only general-purpose SPI host, so the firmware reads the MT6701 encoder by bit-banging its SSI interface.
+
+The module ends up mounted turned 45° clockwise relative to the knob's "up". The firmware rotates the image back in software (`LCD_ROTATE_DEG` in `firmware/t-knob/include/board.h`). If you mount it at a different angle, change that value to match.
 
 ## Reference dimensions
 

@@ -10,7 +10,7 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 ```
 
 - `host/`: `knobd`, a Rust daemon with a menu-bar icon, plus a CLI (macOS for now; window focusing sits behind a `Focuser` trait so other platforms can be added).
-- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last.
+- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last. An add-on GC9A01 round LCD on the knob's static centre shows a session dial (see `hardware/`).
 - `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
 - `firmware/lib/knoblink/`: the host protocol, shared by both boards.
 - `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD.
@@ -21,7 +21,8 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 
 ```sh
 cd host
-./scripts/bundle-macos.sh                          # builds target/release/Claude Knob.app
+./scripts/bundle-macos.sh                          # builds target/release/Claude Knob.app (needs a default
+                                                   # Rust toolchain: `rustup default stable`)
 mv "target/release/Claude Knob.app" /Applications/
 open "/Applications/Claude Knob.app"
 ```
@@ -56,6 +57,17 @@ Each LED shows one session (on the page of 4 that contains the selection):
 - fast blink = needs you
 - solid = done
 
+Turning clockwise moves to the next session. To flip that, change `KNOB_REVERSE` in `include/board.h`.
+
+#### Round display
+
+If the GC9A01 LCD is fitted (wiring in [`hardware/README.md`](hardware/README.md)), it shows a dial:
+- **Marks:** one bar per session around the edge, spaced like the detents, starting at 12 o'clock and running clockwise like hours on a watch. Each bar has its session's colour: blue = running (pulses), amber = needs you (blinks), green = done, grey = idle. The selected session's bar is longer and wider.
+- **Pointer:** a white needle that follows the wheel, so it lands on a mark at each detent.
+- **Centre:** "2 / 5", the selected session's name (up to two lines) and its state. Before knobd connects it shows "Claude Knob / waiting for knobd".
+
+The panel is mounted turned 45°, so the firmware draws everything rotated back (`LCD_ROTATE_DEG`). If the pointer turns against the wheel, flip `DISPLAY_ANGLE_SIGN`. Both are in `include/board.h`. Frames go out in 8-row strips over DMA between motor-loop passes, so drawing never stalls the haptics. The LCD takes the C6's only general-purpose SPI host, so the MT6701 is read by bit-banged SSI.
+
 When a session starts waiting for you, the knob gives a short vibration (`nudge`, set it to 0 to turn it off). There's no sound. While waiting for knobd, all LEDs breathe slowly. With no sessions the knob spins freely.
 
 #### Tuning the feel
@@ -84,7 +96,7 @@ Two panel revisions of this board exist. `include/board.h` defaults to the newer
 
 | Knob | Action |
 |---|---|
-| Rotate | Move to the next or previous session (one detent each). Its Terminal tab is focused right away (about 20–45 ms). Spinning fast skips windows instead of queueing them. |
+| Rotate | Move to the next (clockwise) or previous session (one detent each). Its Terminal tab is focused right away (about 20–45 ms). Spinning fast skips windows instead of queueing them. |
 | Press | Focus the selected session immediately. The T-Knob uses the MT6701 push flag or the BOOT button. |
 | Focus a window yourself | The knob follows. Click a session's Terminal window, use ⌘\`, or anything else, and the T-Knob's motor turns the wheel to that session within about 0.1 s. It gives up if you're holding the wheel, and waits 1 s after you last turned it. |
 | Switch to another app | The knob shows "no selection" (no LED is highlighted) and stays parked where it was. The next click moves to the neighboring session as usual. If it's parked at the first or last session, pushing into that end's wall selects that session (you feel a tick). |
@@ -106,7 +118,7 @@ knobd uninstall-hooks
 `KNOBD_SOCKET` overrides the socket path (default `~/.claude-knob/knobd.sock`). `KNOBD_DEBUG=1` makes `knobd hook` print errors to stderr.
 
 Files in `~/.claude-knob/`:
-- `knobd.log`: what the daemon did. Each knob click (`knob: select`) and each window change it saw (`watch: front window …`) gets a line, which is the place to look if the knob and Terminal disagree.
+- `knobd.log`: what the daemon did. Each knob click (`knob: select`) and each window change it saw (`watch: front window …`) gets a line, which is the place to look if the knob and Terminal disagree. `knob went silent (USB transmit stuck); resetting it` means the watchdog below kicked in.
 - `sessions.json`: the tracked sessions. Saved on every change, so restarting the app doesn't lose them.
 
 ## How state is tracked
@@ -126,7 +138,8 @@ Every 100 ms the daemon checks which window is on top, using the window server's
 ## Protocol (USB CDC, newline-delimited JSON)
 
 - daemon → knob: `{"t":"sessions","items":[{"id":"…","name":"proj","state":"running"}],"sel":0,"focus":0}`, sent on every change and every 3 s as a heartbeat. `focus` is the session whose window is in front, or -1 when it's another app.
-- knob → daemon: `{"t":"hello","fw":"0.2.0"}`, `{"t":"select","idx":1,"id":"…"}`, `{"t":"press","idx":1,"id":"…"}`.
+- knob → daemon: `{"t":"hello","fw":"0.2.0"}` (every 1 s until it hears from the daemon), `{"t":"alive"}` (every 2 s while connected), `{"t":"select","idx":1,"id":"…"}`, `{"t":"press","idx":1,"id":"…"}`.
+- Watchdog: the ESP32's USB serial transmit can wedge (seen after a re-plug) while receive keeps working. The knob then follows the host, but its turns never arrive. If a knob that has sent `alive` goes quiet for 6 s, knobd resets the chip over USB (RTS with DTR low) and reconnects. Firmware that never sends `alive` is never reset.
 - Board-specific commands (tuning, debug, calibration) pass through `knobd knob '<json>'`. They're listed at the top of `firmware/t-knob/src/main.cpp`.
 
 ## Development
