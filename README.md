@@ -1,5 +1,8 @@
 # Claude Knob
 
+<!-- Demo: add a 10-20 s GIF here (turning the knob switches Terminal windows; clicking a
+     window turns the knob), e.g. ![Claude Knob demo](docs/demo.gif) -->
+
 A USB knob for switching between Claude Code sessions. Each open session gets one position on the knob, and turning the knob brings that session's Terminal window to the front. It works the other way too: focus a window yourself and the knob turns to it. The knob shows each session's state (idle, running, needs you, done) on its LEDs or screen, and the menu-bar icon shows it too.
 
 ```
@@ -14,6 +17,13 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 - `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
 - `firmware/lib/knoblink/`: the host protocol, shared by both boards.
 - `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD.
+
+## What you need
+
+- **[LilyGO T-Knob](https://github.com/Xinyuan-LilyGO/T-Knob)**: ESP32-C6 haptic knob (BLDC motor, magnetic encoder, LEDs). On its own it's a complete knob, with LEDs for session states.
+- **[Waveshare 1.28inch LCD Module](https://www.waveshare.com/1.28inch-lcd-module.htm)** (optional): GC9A01 240×240 round LCD for the session dial. It comes with a PH2.0 cable, which you cut and solder to the knob's top PCB ([wiring](hardware/README.md)).
+- A USB-C cable and a Mac. The host app is macOS-only for now.
+- To build: [Rust](https://rustup.rs) and [PlatformIO](https://platformio.org).
 
 ## Setup
 
@@ -151,3 +161,7 @@ cd ../firmware/t-knob && pio run          # and firmware/t-encoder-pro
 ```
 
 CI (`.github/workflows/ci.yml`) runs the same checks on every push: the host on macOS (fmt, clippy with and without the menu-bar feature, tests, and an app bundle build), plus a PlatformIO build of both firmwares. The firmware has no unit tests yet. On the T-Knob, `knobd knob '{"t":"shift","deg":8}'` with debug on is a quick hardware self-test: the motor should turn the knob 8° and settle without wobbling.
+
+## License
+
+[MIT](LICENSE). The fonts in `firmware/t-knob/src/fonts/` are GNU FreeFont (GPLv3 with the font exception), converted by Adafruit. The font exception is meant to let you embed fonts without the GPL covering the rest of the work.
