@@ -164,4 +164,4 @@ CI (`.github/workflows/ci.yml`) runs the same checks on every push: the host on 
 
 ## License
 
-[MIT](LICENSE). The fonts in `firmware/t-knob/src/fonts/` are GNU FreeFont (GPLv3 with the font exception), converted by Adafruit. The GPL doesn't extend to firmware that embeds them.
+[MIT](LICENSE). The fonts in `firmware/t-knob/src/fonts/` are GNU FreeFont (GPLv3 with the font exception), converted by Adafruit. The font exception is meant to let you embed fonts without the GPL covering the rest of the work.
