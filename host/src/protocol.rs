@@ -56,6 +56,9 @@ pub enum FromKnob {
         #[serde(default)]
         id: Option<String>,
     },
+    /// Keepalive, every 2 s while the knob sees the host. A knob that has sent one and
+    /// then goes quiet has a stuck USB transmit (see `run_link`).
+    Alive,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

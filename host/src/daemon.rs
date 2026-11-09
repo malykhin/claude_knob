@@ -16,6 +16,15 @@ const PRUNE_EVERY: Duration = Duration::from_secs(5);
 /// The knob treats a link silent for 8 s as lost, so re-send the snapshot regularly.
 const HEARTBEAT: Duration = Duration::from_secs(3);
 
+/// How a knob link ended.
+#[derive(Debug, PartialEq, Eq)]
+pub enum LinkEnd {
+    /// EOF, I/O error, or the daemon shutting down.
+    Closed,
+    /// The knob had been sending keepalives and then went quiet for `silent_after`.
+    Silent,
+}
+
 pub fn state_dir() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".claude-knob")
 }
@@ -158,6 +167,7 @@ impl Shared {
     fn handle_knob(self: &Arc<Self>, ev: FromKnob) {
         match ev {
             FromKnob::Hello { fw } => eprintln!("knob connected (fw {fw})"),
+            FromKnob::Alive => {}
             FromKnob::Select { idx, id } | FromKnob::Press { idx, id } => {
                 eprintln!("knob: select {idx}");
                 if let Some(id) = self.select(idx, id) {
@@ -176,8 +186,11 @@ impl Shared {
 }
 
 /// Runs a knob link: pushes snapshots whenever state changes, handles knob events.
-/// Returns when the reader hits EOF or an I/O error.
-pub async fn run_link<R, W>(shared: Arc<Shared>, reader: R, mut writer: W)
+/// Returns when the reader hits EOF or an I/O error, or, with `silent_after`, when a knob
+/// that has sent keepalives stops sending anything for that long. That happens when the
+/// ESP32's USB serial transmit wedges while receive keeps working: the knob still follows
+/// the host but its turns never arrive.
+pub async fn run_link<R, W>(shared: Arc<Shared>, reader: R, mut writer: W, silent_after: Option<Duration>) -> LinkEnd
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -186,11 +199,16 @@ where
     let mut raw_rx = shared.raw_tx.subscribe();
     let mut lines = reader.lines();
     let mut heartbeat = tokio::time::interval(HEARTBEAT);
+    let mut alive_seen = false;
+    let mut last_line = tokio::time::Instant::now();
+    let far = Duration::from_secs(365 * 24 * 3600);
     loop {
+        let deadline = last_line + if alive_seen { silent_after.unwrap_or(far) } else { far };
         tokio::select! {
+            _ = tokio::time::sleep_until(deadline) => return LinkEnd::Silent,
             r = rx.changed() => {
                 if r.is_err() || send(&mut writer, &shared.snapshot()).await.is_err() {
-                    return;
+                    return LinkEnd::Closed;
                 }
                 heartbeat.reset();
             }
@@ -199,21 +217,22 @@ where
                     let mut buf = line.into_bytes();
                     buf.push(b'\n');
                     if writer.write_all(&buf).await.is_err() || writer.flush().await.is_err() {
-                        return;
+                        return LinkEnd::Closed;
                     }
                 }
             }
             // Also fires immediately on connect.
             _ = heartbeat.tick() => {
                 if send(&mut writer, &shared.snapshot()).await.is_err() {
-                    return;
+                    return LinkEnd::Closed;
                 }
             }
             line = lines.next_line() => {
                 let line = match line {
                     Ok(Some(l)) => l,
-                    _ => return,
+                    _ => return LinkEnd::Closed,
                 };
+                last_line = tokio::time::Instant::now();
                 let line = line.trim();
                 if line.is_empty() {
                     continue;
@@ -222,9 +241,10 @@ where
                     Ok(FromKnob::Hello { fw }) => {
                         shared.handle_knob(FromKnob::Hello { fw });
                         if send(&mut writer, &shared.snapshot()).await.is_err() {
-                            return;
+                            return LinkEnd::Closed;
                         }
                     }
+                    Ok(FromKnob::Alive) => alive_seen = true,
                     Ok(ev) => shared.handle_knob(ev),
                     // The firmware may print debug logs on the same port.
                     Err(_) => eprintln!("knob: {line}"),
@@ -362,7 +382,9 @@ async fn handle_conn(shared: Arc<Shared>, stream: UnixStream) -> anyhow::Result<
             };
             send(&mut w, &reply).await?;
         }
-        Ctl::Attach => run_link(shared, reader, w).await,
+        Ctl::Attach => {
+            run_link(shared, reader, w, None).await;
+        }
         Ctl::Knob { line } => {
             let reply = match shared.raw_tx.send(line) {
                 Ok(_) => "sent",

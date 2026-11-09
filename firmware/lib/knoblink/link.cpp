@@ -10,12 +10,14 @@
 // The daemon re-sends a snapshot every few seconds; silence longer than this means it's gone.
 #define HOST_TIMEOUT_MS 8000
 #define HELLO_EVERY_MS 1000
+// While connected: lets the host notice a wedged USB transmit (it resets the chip).
+#define ALIVE_EVERY_MS 2000
 
 static char line[4096];
 static size_t len = 0;
 static bool overflow = false;
 static uint32_t last_rx = 0;
-static uint32_t last_hello = 0;
+static uint32_t last_hello = 0, last_alive = 0;
 static void (*extra_handler)(JsonDocument &) = nullptr;
 
 void link_init()
@@ -124,6 +126,10 @@ int link_poll()
     if (!model.hostSeen && now - last_hello > HELLO_EVERY_MS) {
         last_hello = now;
         Serial.print("{\"t\":\"hello\",\"fw\":\"" FW_VERSION "\"}\n");
+    }
+    if (model.hostSeen && now - last_alive > ALIVE_EVERY_MS) {
+        last_alive = now;
+        Serial.print("{\"t\":\"alive\"}\n");
     }
     return flags;
 }
