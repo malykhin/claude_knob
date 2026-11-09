@@ -2,11 +2,16 @@
 
 Reference for building a case around the **LilyGO T-Knob** with a **Waveshare 1.28inch LCD Module** (GC9A01, 240×240) mounted on its static centre.
 
+## Design files
+
+- **Adapter PCB** (EasyEDA Pro, made by JLCPCB): [OSHWLab project](https://oshwlab.com/dmalykhin/project_eatennvi). You can view the schematic and PCB in the browser, clone the project or order the board.
+- **3D-printed parts** (Onshape): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5). You can view it, export STEP/STL, or copy it to remix.
+
 ## Wiring the display to the top PCB
 
 The T-Knob's static top breakout (T-Motor-TOP V1.0) exposes 4 GPIOs: IO19, IO8, TXD (IO16) and RXD (IO17), plus 3V3, 5VIN and GND. The top and bottom 4-pin headers duplicate the side pads.
 
-Cut the PH2.0 cable that comes with the module and solder it to the pads:
+The [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) makes these connections. To wire it by hand instead, cut the PH2.0 cable that comes with the module and solder it to the pads:
 
 | Module pin | Top PCB pad | Why |
 |---|---|---|

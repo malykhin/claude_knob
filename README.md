@@ -16,12 +16,13 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 - `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last. An add-on GC9A01 round LCD on the knob's static centre shows a session dial (see `hardware/`).
 - `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
 - `firmware/lib/knoblink/`: the host protocol, shared by both boards.
-- `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD.
+- `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD. The design files live online: [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) (EasyEDA) and [case](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5) (Onshape).
 
 ## What you need
 
 - **[LilyGO T-Knob](https://github.com/Xinyuan-LilyGO/T-Knob)**: ESP32-C6 haptic knob (BLDC motor, magnetic encoder, LEDs). On its own it's a complete knob, with LEDs for session states.
-- **[Waveshare 1.28inch LCD Module](https://www.waveshare.com/1.28inch-lcd-module.htm)** (optional): GC9A01 240×240 round LCD for the session dial. It comes with a PH2.0 cable, which you cut and solder to the knob's top PCB ([wiring](hardware/README.md)).
+- **[Waveshare 1.28inch LCD Module](https://www.waveshare.com/1.28inch-lcd-module.htm)** (optional): GC9A01 240×240 round LCD for the session dial. It connects to the knob's top PCB through the [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) (or hand-soldered: see the [wiring](hardware/README.md)).
+- **3D-printed parts** (optional): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5).
 - A USB-C cable and a Mac. The host app is macOS-only for now.
 - To build: [Rust](https://rustup.rs) and [PlatformIO](https://platformio.org).
 
