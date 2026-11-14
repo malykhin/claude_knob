@@ -30,6 +30,16 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 
 ### 1. Menu-bar app
 
+Quick install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/malykhin/claude_knob/main/install.sh | sh
+```
+
+This puts `Claude Knob.app` in `/Applications` (or `~/Applications`), installs the Claude Code hooks and starts knobd at login. It downloads the latest release build, or builds from source if there's no release (that needs Rust). `KNOB_FROM_SOURCE=1`, `KNOB_NO_HOOKS=1` and `KNOB_NO_LOGIN=1` change that; the top of [`install.sh`](install.sh) lists every option. To remove it: `curl -fsSL …/install.sh | sh -s -- uninstall`. Then restart any running `claude` sessions.
+
+Or build it yourself:
+
 ```sh
 cd host
 ./scripts/bundle-macos.sh                          # builds target/release/Claude Knob.app (needs a default
