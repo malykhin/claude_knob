@@ -1,5 +1,7 @@
 # Claude Knob
 
+<p align="center"><img src="docs/knob.jpg" alt="Claude Knob: a yellow 3D-printed knob with a round display showing the session dial" width="600"></p>
+
 <!-- Demo: add a 10-20 s GIF here (turning the knob switches Terminal windows; clicking a
      window turns the knob), e.g. ![Claude Knob demo](docs/demo.gif) -->
 
