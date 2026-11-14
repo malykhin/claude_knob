@@ -60,7 +60,13 @@ build_from_source() {
   command -v cargo >/dev/null 2>&1 ||
     die "Rust is needed to build from source. Install it from https://rustup.rs and re-run."
   if ! cargo --version >/dev/null 2>&1; then
-    die "cargo has no default toolchain. Run 'rustup default stable' and re-run."
+    # rustup without a default toolchain: use stable for this build only.
+    command -v rustup >/dev/null 2>&1 ||
+      die "cargo doesn't work. Fix your Rust install (https://rustup.rs) and re-run."
+    say "No default Rust toolchain; using stable for this build"
+    rustup toolchain install stable --profile minimal >/dev/null
+    RUSTUP_TOOLCHAIN=stable
+    export RUSTUP_TOOLCHAIN
   fi
   say "Building from source ($REPO@$ref)"
   if command -v git >/dev/null 2>&1; then
