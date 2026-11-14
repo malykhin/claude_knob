@@ -1,11 +1,20 @@
 #!/bin/sh
 # Builds "Claude Knob.app" (menu-bar app around knobd) in host/target/release/.
+# UNIVERSAL=1 builds an arm64 + x86_64 binary (used for releases).
 set -eu
 cd "$(dirname "$0")/.."
 
-cargo build --release
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 APP="target/release/Claude Knob.app"
+
+if [ "${UNIVERSAL:-0}" = 1 ]; then
+  cargo build --release --target aarch64-apple-darwin --target x86_64-apple-darwin
+  mkdir -p target/release
+  lipo -create -output target/release/knobd \
+    target/aarch64-apple-darwin/release/knobd target/x86_64-apple-darwin/release/knobd
+else
+  cargo build --release
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"

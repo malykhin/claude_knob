@@ -1,5 +1,7 @@
 # Claude Knob
 
+<p align="center"><img src="docs/knob.jpg" alt="Claude Knob: a yellow 3D-printed knob with a round display showing the session dial" width="600"></p>
+
 <!-- Demo: add a 10-20 s GIF here (turning the knob switches Terminal windows; clicking a
      window turns the knob), e.g. ![Claude Knob demo](docs/demo.gif) -->
 
@@ -29,6 +31,16 @@ Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd dae
 ## Setup
 
 ### 1. Menu-bar app
+
+Quick install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/malykhin/claude_knob/main/install.sh | sh
+```
+
+This puts `Claude Knob.app` in `/Applications` (or `~/Applications`), installs the Claude Code hooks and starts knobd at login. It downloads the latest release build, or builds from source if there's no release (that needs Rust). `KNOB_FROM_SOURCE=1`, `KNOB_NO_HOOKS=1` and `KNOB_NO_LOGIN=1` change that; the top of [`install.sh`](install.sh) lists every option. To remove it: `curl -fsSL …/install.sh | sh -s -- uninstall`. Then restart any running `claude` sessions.
+
+Or build it yourself:
 
 ```sh
 cd host

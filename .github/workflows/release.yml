@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v0.1.0 to publish a release with the universal macOS app,
+# which install.sh downloads.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: host
+      - name: Build the universal app bundle
+        run: UNIVERSAL=1 ./scripts/bundle-macos.sh
+      - name: Zip
+        run: ditto -c -k --keepParent "target/release/Claude Knob.app" ../Claude-Knob-macos.zip
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" ../Claude-Knob-macos.zip --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Upload artifact (manual runs)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: Claude-Knob-macos
+          path: Claude-Knob-macos.zip
