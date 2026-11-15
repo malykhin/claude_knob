@@ -3,14 +3,16 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/malykhin/claude_knob/main/install.sh | sh
 #
-# Installs "Claude Knob.app", adds the Claude Code hooks and starts knobd at login.
+# Installs "Claude Knob.app" for the current user only (~/Applications), adds the
+# Claude Code hooks to this user's Claude config and starts knobd at login.
 # Downloads the latest release build; falls back to building from source (needs Rust).
 #
 # Environment:
 #   KNOB_FROM_SOURCE=1   always build from source instead of downloading a release
 #   KNOB_REF=<ref>       git branch/tag to build from source (default: main)
-#   KNOB_APP_DIR=<dir>   where to put the app (default: /Applications, or ~/Applications)
-#   KNOB_NO_HOOKS=1      don't touch ~/.claude/settings.json
+#   KNOB_APP_DIR=<dir>   where to put the app (default: ~/Applications)
+#   KNOB_NO_HOOKS=1      don't touch Claude Code's settings.json
+#   CLAUDE_CONFIG_DIR    Claude Code's config dir, if not ~/.claude (hooks go there)
 #   KNOB_NO_LOGIN=1      don't start knobd at login (just open the app once)
 #
 # Uninstall:  curl -fsSL .../install.sh | sh -s -- uninstall
@@ -27,21 +29,19 @@ say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
+LEGACY_APP="/Applications/$APP_NAME"  # where older installers put it
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
 app_dir() {
-  if [ -n "${KNOB_APP_DIR:-}" ]; then
-    echo "$KNOB_APP_DIR"
-  elif [ -w /Applications ]; then
-    echo /Applications
-  else
-    echo "$HOME/Applications"
-  fi
+  echo "${KNOB_APP_DIR:-$HOME/Applications}"
 }
 
 stop_running() {
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
   # Only the daemon (`knobd run`, or the app with no arguments), not one-off CLI calls.
-  pkill -f '/knobd run$' >/dev/null 2>&1 || true
-  pkill -f '/Contents/MacOS/knobd$' >/dev/null 2>&1 || true
+  # This user's only: other users run their own knobd.
+  pkill -U "$(id -u)" -f '/knobd run$' >/dev/null 2>&1 || true
+  pkill -U "$(id -u)" -f '/Contents/MacOS/knobd$' >/dev/null 2>&1 || true
 }
 
 fetch_release() {
@@ -102,7 +102,7 @@ install() {
   xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
 
   if [ "${KNOB_NO_HOOKS:-0}" != 1 ]; then
-    say "Installing Claude Code hooks"
+    say "Installing Claude Code hooks into $CLAUDE_DIR/settings.json"
     "$knobd" install-hooks
   fi
 
@@ -111,6 +111,11 @@ install() {
     "$knobd" install-launchd
   else
     open "$dest"
+  fi
+
+  if [ "$dest" != "$LEGACY_APP" ] && [ -d "$LEGACY_APP" ]; then
+    warn "an older install is still in $LEGACY_APP. This user's hooks now use $dest."
+    echo "    Remove the old copy once no other user on this Mac needs it."
   fi
 
   echo
@@ -122,12 +127,15 @@ install() {
 
 uninstall() {
   dest="$(app_dir)/$APP_NAME"
+  if [ ! -d "$dest" ] && [ -z "${KNOB_APP_DIR:-}" ] && [ -O "$LEGACY_APP" ]; then
+    dest="$LEGACY_APP"  # installed by an older installer, by this user
+  fi
   knobd="$dest/Contents/MacOS/knobd"
   if [ -x "$knobd" ]; then
     say "Removing Claude Code hooks"
     "$knobd" uninstall-hooks || warn "couldn't remove hooks"
   else
-    warn "$dest not found; remove knobd hooks from ~/.claude/settings.json by hand if any are left"
+    warn "$dest not found; remove knobd hooks from $CLAUDE_DIR/settings.json by hand if any are left"
   fi
   say "Stopping knobd"
   stop_running

@@ -38,7 +38,7 @@ Quick install:
 curl -fsSL https://raw.githubusercontent.com/malykhin/claude_knob/main/install.sh | sh
 ```
 
-This puts `Claude Knob.app` in `/Applications` (or `~/Applications`), installs the Claude Code hooks and starts knobd at login. It downloads the latest release build, or builds from source if there's no release (that needs Rust). `KNOB_FROM_SOURCE=1`, `KNOB_NO_HOOKS=1` and `KNOB_NO_LOGIN=1` change that; the top of [`install.sh`](install.sh) lists every option. To remove it: `curl -fsSL …/install.sh | sh -s -- uninstall`. Then restart any running `claude` sessions.
+This installs for the current user only: it puts `Claude Knob.app` in `~/Applications`, adds the Claude Code hooks to your `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json` if you set it) and starts knobd at login. Each user on the Mac runs it for themselves. It downloads the latest release build, or builds from source if there's no release (that needs Rust). `KNOB_FROM_SOURCE=1`, `KNOB_NO_HOOKS=1` and `KNOB_NO_LOGIN=1` change that; the top of [`install.sh`](install.sh) lists every option. To remove it: `curl -fsSL …/install.sh | sh -s -- uninstall`. Then restart any running `claude` sessions.
 
 Or build it yourself:
 
