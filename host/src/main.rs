@@ -50,9 +50,9 @@ enum Cmd {
     Sim,
     /// List serial ports that look like the knob.
     Ports,
-    /// Add knobd hooks to ~/.claude/settings.json.
+    /// Add knobd hooks to Claude Code's settings.json ($CLAUDE_CONFIG_DIR, or ~/.claude).
     InstallHooks,
-    /// Remove knobd hooks from ~/.claude/settings.json.
+    /// Remove knobd hooks from Claude Code's settings.json.
     UninstallHooks,
     /// Start knobd at login via a LaunchAgent (macOS).
     InstallLaunchd,

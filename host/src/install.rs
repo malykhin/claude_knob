@@ -23,8 +23,16 @@ fn home() -> PathBuf {
     PathBuf::from(std::env::var("HOME").expect("HOME is set"))
 }
 
+/// Claude Code's config dir: `$CLAUDE_CONFIG_DIR`, or `~/.claude`.
+pub fn claude_config_dir() -> PathBuf {
+    std::env::var_os("CLAUDE_CONFIG_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home().join(".claude"))
+}
+
 fn settings_path() -> PathBuf {
-    home().join(".claude").join("settings.json")
+    claude_config_dir().join("settings.json")
 }
 
 fn exe() -> anyhow::Result<String> {
@@ -115,6 +123,15 @@ fn plist_path() -> PathBuf {
 fn write_plist() -> anyhow::Result<PathBuf> {
     let plist = plist_path();
     let log = state_dir().join("knobd.log");
+    // launchd doesn't pass the login shell's environment, so keep a custom
+    // Claude config dir for session discovery.
+    let env = match std::env::var("CLAUDE_CONFIG_DIR") {
+        Ok(dir) if !dir.is_empty() => format!(
+            "\n  <key>EnvironmentVariables</key>\n  <dict><key>CLAUDE_CONFIG_DIR</key><string>{}</string></dict>",
+            xml_escape(&dir)
+        ),
+        _ => String::new(),
+    };
     std::fs::create_dir_all(state_dir())?;
     std::fs::create_dir_all(plist.parent().unwrap())?;
     let body = format!(
@@ -130,15 +147,19 @@ fn write_plist() -> anyhow::Result<PathBuf> {
   <dict><key>SuccessfulExit</key><false/></dict>
   <key>ProcessType</key><string>Interactive</string>
   <key>StandardErrorPath</key><string>{log}</string>
-  <key>StandardOutPath</key><string>{log}</string>
+  <key>StandardOutPath</key><string>{log}</string>{env}
 </dict>
 </plist>
 "#,
-        exe = exe()?,
-        log = log.display()
+        exe = xml_escape(&exe()?),
+        log = xml_escape(&log.to_string_lossy())
     );
     std::fs::write(&plist, body)?;
     Ok(plist)
+}
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 #[cfg_attr(not(feature = "tray"), allow(dead_code))]

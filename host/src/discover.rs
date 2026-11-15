@@ -22,10 +22,7 @@ struct SessionFile {
 }
 
 fn sessions_dir() -> PathBuf {
-    let base = std::env::var_os("CLAUDE_CONFIG_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".claude"));
-    base.join("sessions")
+    crate::install::claude_config_dir().join("sessions")
 }
 
 /// Live sessions not in `known` (by id), with their terminal tty filled in.
