@@ -25,7 +25,10 @@ fn home() -> PathBuf {
 
 /// Claude Code's config dir: `$CLAUDE_CONFIG_DIR`, or `~/.claude`.
 pub fn claude_config_dir() -> PathBuf {
-    std::env::var_os("CLAUDE_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from).unwrap_or_else(|| home().join(".claude"))
+    std::env::var_os("CLAUDE_CONFIG_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home().join(".claude"))
 }
 
 fn settings_path() -> PathBuf {
