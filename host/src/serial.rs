@@ -25,6 +25,26 @@ pub fn find_port() -> Option<String> {
     found.into_iter().next().map(|p| p.replace("/dev/tty.", "/dev/cu."))
 }
 
+/// True when this user's session is the one on screen. With fast user switching
+/// every user can have a knobd running, but only one can hold the knob's port, so
+/// the knob follows whoever is at the screen. macOS gives `/dev/console` to that user.
+#[cfg(target_os = "macos")]
+fn on_screen() -> bool {
+    use std::os::unix::fs::MetadataExt;
+    std::fs::metadata("/dev/console").map_or(true, |m| m.uid() == unsafe { libc::getuid() })
+}
+
+#[cfg(not(target_os = "macos"))]
+fn on_screen() -> bool {
+    true
+}
+
+async fn until_off_screen() {
+    while on_screen() {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+}
+
 /// Resets the ESP32 through its USB Serial/JTAG bridge: RTS high with DTR low holds the
 /// chip in reset, releasing RTS lets it boot normally (DTR low = not download mode).
 fn reset_chip(path: &str) {
@@ -42,7 +62,17 @@ fn reset_chip(path: &str) {
 /// Keeps a connection to the knob alive, reconnecting after unplugs.
 pub async fn run(shared: Arc<Shared>, port: Option<String>) {
     let mut announced_missing = false;
+    let mut announced_away = false;
     loop {
+        if !on_screen() {
+            if !announced_away {
+                eprintln!("another user is on screen; leaving the knob to them");
+                announced_away = true;
+            }
+            tokio::time::sleep(RETRY).await;
+            continue;
+        }
+        announced_away = false;
         let path = port.clone().or_else(find_port);
         match path {
             None => {
@@ -58,9 +88,15 @@ pub async fn run(shared: Arc<Shared>, port: Option<String>) {
                     eprintln!("knob port opened: {path}");
                     shared.set_knob_port(Some(path.clone()));
                     let (r, w) = tokio::io::split(s);
-                    let end = run_link(shared.clone(), BufReader::new(r), w, Some(SILENT_AFTER)).await;
+                    // Dropping the link closes the port, so the user on screen can open it.
+                    let end = tokio::select! {
+                        end = run_link(shared.clone(), BufReader::new(r), w, Some(SILENT_AFTER)) => Some(end),
+                        _ = until_off_screen() => None,
+                    };
                     shared.set_knob_port(None);
-                    if end == LinkEnd::Silent {
+                    if end.is_none() {
+                        eprintln!("switched to another user; released the knob");
+                    } else if end == Some(LinkEnd::Silent) {
                         eprintln!("knob went silent (USB transmit stuck); resetting it");
                         reset_chip(&path);
                     } else {
