@@ -1,0 +1,16 @@
+name: Feature request
+description: Ask for something the knob or knobd doesn't do yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The thing you're trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. Your idea for the knob, the display, the menu-bar app or the CLI.
