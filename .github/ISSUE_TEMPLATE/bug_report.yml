@@ -1,0 +1,57 @@
+name: Bug report
+description: Something doesn't work as the README says.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open two claude sessions in Terminal
+        2. Turn the knob one detent clockwise
+        3. ...
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - LilyGO T-Knob
+        - LilyGO T-Knob with GC9A01 round display
+        - LilyGO T-Encoder Pro
+        - No hardware (knobd sim or --no-serial)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: knobd version
+      description: Output of `knobd --version`, or the release you installed.
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you installed it
+      options:
+        - install.sh
+        - Built the app with bundle-macos.sh
+        - cargo build, no menu-bar app
+  - type: textarea
+    id: log
+    attributes:
+      label: knobd.log
+      description: The lines from `~/.claude-knob/knobd.log` around the time it happened.
+      render: text
