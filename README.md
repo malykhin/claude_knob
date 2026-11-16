@@ -2,29 +2,28 @@
 
 <p align="center"><img src="docs/knob.png" alt="Claude Knob: a yellow 3D-printed knob with a round display showing the session dial" width="600"></p>
 
-<!-- Demo: add a 10-20 s GIF here (turning the knob switches Terminal windows; clicking a
-     window turns the knob), e.g. ![Claude Knob demo](docs/demo.gif) -->
-
 A USB knob for switching between Claude Code sessions. Each open session gets one position on the knob, and turning the knob brings that session's Terminal window to the front. It works the other way too: focus a window yourself and the knob turns to it. The knob shows each session's state (idle, running, needs you, done) on its LEDs or screen, and the menu-bar icon shows it too.
 
-```
-Claude Code ──hooks──▶ knobd hook ──unix socket──▶ knobd daemon ◀──USB serial (NDJSON)──▶ knob (ESP32-C6 / S3)
-                                                       │  ▲
-                              focus a tab by tty ──────┘  └────── which window is in front
-                              (in-process AppleScript)            (CoreGraphics window list)
+```mermaid
+flowchart LR
+    claude["Claude Code"] -- hooks --> hook["knobd hook"]
+    hook -- "unix socket" --> daemon["knobd daemon"]
+    daemon <-- "USB serial (NDJSON)" --> knob["knob<br>ESP32-C6 / S3"]
+    daemon -- "focus a tab by tty<br>(in-process AppleScript)" --> terminal["Terminal"]
+    terminal -- "which window is in front<br>(CoreGraphics window list)" --> daemon
 ```
 
 - `host/`: `knobd`, a Rust daemon with a menu-bar icon, plus a CLI (macOS for now; window focusing sits behind a `Focuser` trait so other platforms can be added).
-- `firmware/t-knob/`: firmware for the **LilyGO T-Knob** (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last. An add-on GC9A01 round LCD on the knob's static centre shows a session dial (see `hardware/`).
+- `firmware/t-knob/`: firmware for the LilyGO T-Knob (ESP32-C6, BLDC gimbal motor + MT6701 magnetic encoder, 4 LEDs; the buzzer footprint isn't populated). The motor creates the detents: exactly one per session, with walls past the first and last. An add-on GC9A01 round LCD on the knob's static centre shows a session dial (see `hardware/`).
 - `firmware/t-encoder-pro/`: firmware for the LilyGO T-Encoder Pro (ESP32-S3, round AMOLED, mechanical encoder). Not tested on hardware.
 - `firmware/lib/knoblink/`: the host protocol, shared by both boards.
 - `hardware/`: display wiring and reference dimensions for building a case around the T-Knob + Waveshare 1.28" round LCD. The design files live online: [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) (EasyEDA) and [case](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5) (Onshape).
 
 ## What you need
 
-- **[LilyGO T-Knob](https://github.com/Xinyuan-LilyGO/T-Knob)**: ESP32-C6 haptic knob (BLDC motor, magnetic encoder, LEDs). On its own it's a complete knob, with LEDs for session states.
-- **[Waveshare 1.28inch LCD Module](https://www.waveshare.com/1.28inch-lcd-module.htm)** (optional): GC9A01 240×240 round LCD for the session dial. It connects to the knob's top PCB through the [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) (or hand-soldered: see the [wiring](hardware/README.md)).
-- **3D-printed parts** (optional): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5).
+- [LilyGO T-Knob](https://github.com/Xinyuan-LilyGO/T-Knob): ESP32-C6 haptic knob (BLDC motor, magnetic encoder, LEDs). On its own it's a complete knob, with LEDs for session states.
+- [Waveshare 1.28inch LCD Module](https://www.waveshare.com/1.28inch-lcd-module.htm) (optional): GC9A01 240×240 round LCD for the session dial. It connects to the knob's top PCB through the [adapter PCB](https://oshwlab.com/dmalykhin/project_eatennvi) (or hand-soldered: see the [wiring](hardware/README.md)).
+- 3D-printed parts (optional): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5).
 - A USB-C cable and a Mac. The host app is macOS-only for now.
 - To build: [Rust](https://rustup.rs) and [PlatformIO](https://platformio.org).
 
@@ -85,9 +84,9 @@ Turning clockwise moves to the next session. To flip that, change `KNOB_REVERSE`
 #### Round display
 
 If the GC9A01 LCD is fitted (wiring in [`hardware/README.md`](hardware/README.md)), it shows a dial:
-- **Marks:** one bar per session around the edge, spaced like the detents, starting at 12 o'clock and running clockwise like hours on a watch. Each bar has its session's colour: blue = running (pulses), amber = needs you (blinks), green = done, grey = idle. The selected session's bar is longer and wider.
-- **Pointer:** a white needle that follows the wheel, so it lands on a mark at each detent.
-- **Centre:** "2 / 5", the selected session's name (up to two lines) and its state. Before knobd connects it shows "Claude Knob / waiting for knobd".
+- Marks: one bar per session around the edge, spaced like the detents, starting at 12 o'clock and running clockwise like hours on a watch. Each bar has its session's colour: blue = running (pulses), amber = needs you (blinks), green = done, grey = idle. The selected session's bar is longer and wider.
+- Pointer: a white needle that follows the wheel, so it lands on a mark at each detent.
+- Centre: "2 / 5", the selected session's name (up to two lines) and its state. Before knobd connects it shows "Claude Knob / waiting for knobd".
 
 The panel is mounted turned 45°, so the firmware draws everything rotated back (`LCD_ROTATE_DEG`). If the pointer turns against the wheel, flip `DISPLAY_ANGLE_SIGN`. Both are in `include/board.h`. Frames go out in 8-row strips over DMA between motor-loop passes, so drawing never stalls the haptics. The LCD takes the C6's only general-purpose SPI host, so the MT6701 is read by bit-banged SSI.
 

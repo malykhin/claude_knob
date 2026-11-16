@@ -1,11 +1,11 @@
 # Claude Knob hardware
 
-Reference for building a case around the **LilyGO T-Knob** with a **Waveshare 1.28inch LCD Module** (GC9A01, 240×240) mounted on its static centre.
+Reference for building a case around the LilyGO T-Knob with a Waveshare 1.28inch LCD Module (GC9A01, 240×240) mounted on its static centre.
 
 ## Design files
 
-- **Adapter PCB** (EasyEDA Pro, made by JLCPCB): [OSHWLab project](https://oshwlab.com/dmalykhin/project_eatennvi). You can view the schematic and PCB in the browser, clone the project or order the board.
-- **3D-printed parts** (Onshape): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5). You can view it, export STEP/STL, or copy it to remix.
+- Adapter PCB (EasyEDA Pro, made by JLCPCB): [OSHWLab project](https://oshwlab.com/dmalykhin/project_eatennvi). You can view the schematic and PCB in the browser, clone the project or order the board.
+- 3D-printed parts (Onshape): [Onshape document](https://cad.onshape.com/documents/d5cec4e5e8bf401d6ac3d327/w/2e4dde70915e291400fd7391/e/c75e21deb758423042022dd5). You can view it, export STEP/STL, or copy it to remix.
 
 ## Wiring the display to the top PCB
 
